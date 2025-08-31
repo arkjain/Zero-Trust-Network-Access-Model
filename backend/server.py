@@ -284,8 +284,13 @@ async def login_user(login_data: UserLogin, request: Request):
     user_obj = User(**user)
     
     # Check if account is locked
-    if user_obj.account_locked_until and user_obj.account_locked_until > datetime.now(timezone.utc):
-        raise HTTPException(status_code=423, detail="Account is temporarily locked")
+    if user_obj.account_locked_until:
+        # Ensure both datetimes are timezone-aware for comparison
+        locked_until = user_obj.account_locked_until
+        if not locked_until.tzinfo:
+            locked_until = locked_until.replace(tzinfo=timezone.utc)
+        if locked_until > datetime.now(timezone.utc):
+            raise HTTPException(status_code=423, detail="Account is temporarily locked")
     
     # Verify password
     if not verify_password(login_data.password, user_obj.password_hash):
