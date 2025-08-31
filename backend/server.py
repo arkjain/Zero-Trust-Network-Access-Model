@@ -316,27 +316,33 @@ async def login_user(login_data: UserLogin, request: Request):
         {"$set": {"failed_login_attempts": 0, "account_locked_until": None}}
     )
     
-    # Generate and send MFA code
-    mfa_code = generate_mfa_code()
-    expires_at = datetime.now(timezone.utc) + timedelta(minutes=MFA_EXPIRY_MINUTES)
-    
-    mfa_session = MFASession(
-        username=login_data.username,
-        mfa_code=mfa_code,
-        expires_at=expires_at
+    # Update last login
+    await db.users.update_one(
+        {"username": login_data.username},
+        {"$set": {"last_login": datetime.now(timezone.utc)}}
     )
     
-    await db.mfa_sessions.insert_one(mfa_session.dict())
-    await send_mfa_email(user_obj.email, mfa_code)
+    # Create JWT token directly (no MFA required)
+    token_data = {"sub": user_obj.username, "role": user_obj.role}
+    access_token = create_jwt_token(token_data)
     
-    # Log login attempt
+    # Log successful login
     await log_access_attempt(
-        user_obj.id, user_obj.username, "system", "login", "mfa_sent",
+        user_obj.id, user_obj.username, "system", "login", "login_success",
         get_client_ip(request), str(request.headers.get("user-agent", "")),
-        True, "MFA code sent"
+        True, "Login successful"
     )
     
-    return {"message": "MFA code sent to your email", "requires_mfa": True}
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "id": user_obj.id,
+            "username": user_obj.username,
+            "email": user_obj.email,
+            "role": user_obj.role
+        }
+    }
 
 @api_router.post("/auth/verify-mfa")
 async def verify_mfa(mfa_data: MFAVerify, request: Request):
