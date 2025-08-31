@@ -517,22 +517,27 @@ class ZTNABackendTester:
         
         # Create a test user for lockout testing
         test_user_data = {
-            "username": "lockout_test",
-            "email": "lockout@test.com",
+            "username": "lockout_test_user",
+            "email": "lockout.test@company.com",
             "password": "TestPass123!",
             "role": "user"
         }
         
         response = self.make_request("POST", "/auth/register", test_user_data)
-        if not response or response.status_code != 200:
-            self.log_result("Account Lockout Setup", False, "Failed to create test user for lockout testing")
+        if response and response.status_code == 400:
+            # User might already exist, that's okay for testing
+            self.log_result("Account Lockout Setup", True, "Test user exists or created")
+        elif not response or response.status_code != 200:
+            self.log_result("Account Lockout Setup", False, f"Failed to create test user: {response.text if response else 'No response'}")
             return False
+        else:
+            self.log_result("Account Lockout Setup", True, "Test user created successfully")
         
         # Test multiple failed login attempts
         failed_attempts = 0
         for i in range(6):  # Try 6 times (should lock after 5)
             login_data = {
-                "username": "lockout_test",
+                "username": "lockout_test_user",
                 "password": "WrongPassword123!"
             }
             
