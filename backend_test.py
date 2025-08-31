@@ -349,11 +349,14 @@ class ZTNABackendTester:
         response = self.make_request("POST", "/auth/login", login_data)
         
         if not response or response.status_code != 200:
+            print(f"   Login failed for {username}: {response.text if response else 'No response'}")
             return None
         
         # Step 2: Get MFA code from logs
         try:
             import subprocess
+            import time
+            time.sleep(1)  # Wait a moment for log to be written
             result = subprocess.run(['tail', '-n', '50', '/var/log/supervisor/backend.out.log'], 
                                   capture_output=True, text=True)
             log_content = result.stdout
@@ -361,12 +364,20 @@ class ZTNABackendTester:
             mfa_code = None
             lines = log_content.split('\n')
             for line in reversed(lines):  # Check from most recent
-                if f"MFA Code for" in line and username in line:
-                    mfa_code = line.split(":")[-1].strip()
-                    break
+                if f"MFA Code for" in line:
+                    # Extract email from the line to match with user
+                    if username == "john_doe" and "john.doe@company.com" in line:
+                        mfa_code = line.split(":")[-1].strip()
+                        break
+                    elif username == "admin" and "admin@example.com" in line:
+                        mfa_code = line.split(":")[-1].strip()
+                        break
             
             if not mfa_code:
+                print(f"   MFA code not found for {username}")
                 return None
+            
+            print(f"   Found MFA code for {username}: {mfa_code}")
             
             # Step 3: Verify MFA
             mfa_data = {"username": username, "mfa_code": mfa_code}
@@ -374,9 +385,11 @@ class ZTNABackendTester:
             
             if response and response.status_code == 200:
                 return response.json().get("access_token")
+            else:
+                print(f"   MFA verification failed for {username}: {response.text if response else 'No response'}")
         
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"   Exception during authentication for {username}: {str(e)}")
         
         return None
     
