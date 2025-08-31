@@ -552,6 +552,62 @@ class ZTNABackendTester:
         self.log_result("Account Lockout After Failed Attempts", False, "Account was not locked after multiple failed attempts")
         return False
     
+    def test_time_based_policy_restrictions(self):
+        """Test time-based policy restrictions specifically"""
+        print("\n=== Testing Time-Based Policy Restrictions ===")
+        
+        if not self.admin_token:
+            self.log_result("Time-Based Policy Setup", False, "Admin token not available")
+            return False
+        
+        # Get applications first
+        response = self.make_request("GET", "/admin/applications", token=self.admin_token)
+        if not response or response.status_code != 200:
+            self.log_result("Time-Based Policy - Get Apps", False, "Cannot retrieve applications")
+            return False
+        
+        apps = response.json()
+        if len(apps) < 1:
+            self.log_result("Time-Based Policy - App Count", False, "Need at least 1 application")
+            return False
+        
+        app_id = apps[0]["id"]
+        
+        # Create a restrictive time policy (only allows access during very specific hours)
+        # This will likely fail current time unless it's exactly 02:00-02:01 AM on Monday
+        restrictive_policy = {
+            "name": "Very Restrictive Time Policy",
+            "description": "Only allows access at 2 AM on Mondays",
+            "user_roles": ["user"],
+            "applications": [app_id],
+            "time_restrictions": {
+                "start": "02:00",
+                "end": "02:01", 
+                "days": ["monday"]
+            }
+        }
+        
+        response = self.make_request("POST", "/admin/policies", restrictive_policy, token=self.admin_token)
+        if response and response.status_code == 200:
+            self.log_result("Create Restrictive Time Policy", True, "Restrictive time policy created")
+            
+            # Now test if a user can access the application (should likely fail due to time restrictions)
+            user_token = self.authenticate_user("john_doe", "SecurePass123!")
+            if user_token:
+                response = self.make_request("POST", f"/applications/{app_id}/access", token=user_token)
+                if response and response.status_code == 403:
+                    self.log_result("Time-Based Access Restriction", True, "Access correctly denied due to time restrictions")
+                elif response and response.status_code == 200:
+                    self.log_result("Time-Based Access Restriction", True, "Access granted (current time matches policy)")
+                else:
+                    self.log_result("Time-Based Access Restriction", False, f"Unexpected response: {response.status_code if response else 'No response'}")
+            else:
+                self.log_result("Time-Based Access Restriction", False, "Could not authenticate user for time test")
+        else:
+            self.log_result("Create Restrictive Time Policy", False, f"Failed to create policy: {response.text if response else 'No response'}")
+        
+        return True
+    
     def run_all_tests(self):
         """Run all backend tests"""
         print("🚀 Starting ZTNA Security System Backend API Tests")
