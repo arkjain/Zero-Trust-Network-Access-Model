@@ -94,13 +94,14 @@ class ZTNABackendTester:
         try:
             # Read supervisor logs to get MFA code
             import subprocess
-            result = subprocess.run(['tail', '-n', '50', '/var/log/supervisor/backend.*.log'], 
-                                  capture_output=True, text=True, shell=True)
+            result = subprocess.run(['tail', '-n', '100', '/var/log/supervisor/backend.out.log'], 
+                                  capture_output=True, text=True)
             log_content = result.stdout
             
-            # Extract MFA code from logs
+            # Extract the most recent MFA code from logs
             mfa_code = None
-            for line in log_content.split('\n'):
+            lines = log_content.split('\n')
+            for line in reversed(lines):  # Check from most recent
                 if "MFA Code for admin@example.com:" in line:
                     mfa_code = line.split(":")[-1].strip()
                     break
