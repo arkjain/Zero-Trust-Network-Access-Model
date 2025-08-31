@@ -622,6 +622,7 @@ class ZTNABackendTester:
             self.test_policy_engine,
             self.test_access_control_and_gateway,
             self.test_admin_endpoints,
+            self.test_time_based_policy_restrictions,
             self.test_account_lockout
         ]
         
