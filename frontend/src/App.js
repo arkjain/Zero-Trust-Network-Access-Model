@@ -89,11 +89,9 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
 
 // Login Component
 const Login = () => {
-  const [step, setStep] = useState('login'); // 'login' or 'mfa'
   const [formData, setFormData] = useState({
     username: '',
-    password: '',
-    mfaCode: ''
+    password: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -111,31 +109,15 @@ const Login = () => {
         password: formData.password
       });
 
-      if (response.data.requires_mfa) {
-        setStep('mfa');
+      // Direct login without MFA
+      if (response.data.access_token) {
+        login(response.data.access_token, response.data.user);
+        navigate('/dashboard');
+      } else {
+        setError('Login failed - no access token received');
       }
     } catch (error) {
       setError(error.response?.data?.detail || 'Login failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleMFA = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-
-    try {
-      const response = await axios.post(`${API}/auth/verify-mfa`, {
-        username: formData.username,
-        mfa_code: formData.mfaCode
-      });
-
-      login(response.data.access_token, response.data.user);
-      navigate('/dashboard');
-    } catch (error) {
-      setError(error.response?.data?.detail || 'MFA verification failed');
     } finally {
       setLoading(false);
     }
@@ -158,9 +140,7 @@ const Login = () => {
             </svg>
           </div>
           <h2 className="text-3xl font-bold text-white">ZTNA Security Portal</h2>
-          <p className="mt-2 text-gray-300">
-            {step === 'login' ? 'Sign in to your account' : 'Enter your MFA code'}
-          </p>
+          <p className="mt-2 text-gray-300">Sign in to your account</p>
         </div>
 
         <div className="bg-gray-800 py-8 px-6 rounded-xl shadow-2xl">
@@ -170,88 +150,45 @@ const Login = () => {
             </div>
           )}
 
-          {step === 'login' ? (
-            <form onSubmit={handleLogin} className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Username
-                </label>
-                <input
-                  type="text"
-                  name="username"
-                  value={formData.username}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter your username"
-                />
-              </div>
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Username
+              </label>
+              <input
+                type="text"
+                name="username"
+                value={formData.username}
+                onChange={handleChange}
+                required
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Enter your username"
+              />
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Password
-                </label>
-                <input
-                  type="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter your password"
-                />
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Password
+              </label>
+              <input
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                required
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Enter your password"
+              />
+            </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? 'Signing in...' : 'Sign in'}
-              </button>
-            </form>
-          ) : (
-            <form onSubmit={handleMFA} className="space-y-6">
-              <div className="text-center">
-                <p className="text-gray-300 mb-4">
-                  We've sent a verification code to your email. Please enter it below.
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  MFA Code
-                </label>
-                <input
-                  type="text"
-                  name="mfaCode"
-                  value={formData.mfaCode}
-                  onChange={handleChange}
-                  required
-                  maxLength={6}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center text-lg tracking-widest"
-                  placeholder="000000"
-                />
-              </div>
-
-              <div className="flex space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setStep('login')}
-                  className="flex-1 py-2 px-4 border border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-                >
-                  Back
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? 'Verifying...' : 'Verify'}
-                </button>
-              </div>
-            </form>
-          )}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Signing in...' : 'Sign in'}
+            </button>
+          </form>
 
           <div className="mt-6 text-center">
             <p className="text-xs text-gray-400">
