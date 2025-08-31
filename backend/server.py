@@ -604,7 +604,7 @@ async def create_admin_user():
     if not admin_exists:
         admin_user = User(
             username="admin",
-            email="admin@ztna.local",
+            email="admin@example.com",
             password_hash=hash_password("admin123"),
             role="admin"
         )
